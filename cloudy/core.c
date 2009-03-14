@@ -242,9 +242,14 @@ retry_wait:
 	}
 
 skip_wait:
+	if(!cloudy_stream_reserve_buffer(stream,
+				CLOUDY_RECV_RESERVE_SIZE+ctx->received, CLOUDY_RECV_INIT_SIZE)) {
+		return false;
+	}
+
 	rl = read(fd,
-			cloudy_stream_buffer(stream),
-			cloudy_stream_buffer_capacity(stream));
+			cloudy_stream_buffer(stream) + ctx->received,
+			cloudy_stream_buffer_capacity(stream) - ctx->received);
 	if(rl <= 0) {
 		if(errno == EAGAIN || errno == EINTR) {
 			goto retry_wait;
@@ -310,6 +315,9 @@ skip_wait:
 
 bool cloudy_sync_response(cloudy* ctx, cloudy_data* data)
 {
+	if(!cloudy_send_request_flush(ctx)) {
+		return false;
+	}
 	cloudy_entry* const e = (cloudy_entry*)data;
 	while(e->data.header.magic != CLOUDY_RESPONSE) {
 		if(!cloudy_receive_message(ctx)) {
