@@ -9,6 +9,11 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 struct cloudy;
 typedef struct cloudy cloudy;
 
@@ -24,6 +29,10 @@ bool cloudy_send_request_flush(cloudy* ctx);
 
 void cloudy_data_free(cloudy_data* data);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* cloudy/core.h */
 

@@ -6,6 +6,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 typedef struct cloudy_entry {
 	cloudy_data data;  /* must be first */
 	cloudy_seqid_t seqid;
@@ -32,6 +37,10 @@ cloudy_entry* cloudy_cbtable_callback(
 void cloudy_cbtable_callback_all(
 		cloudy_cbtable* cbtable, cloudy_return ret);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* cloudy/cbtable.h */
 

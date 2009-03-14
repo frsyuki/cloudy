@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <arpa/inet.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 typedef uint32_t cloudy_seqid_t;
 typedef uint16_t cloudy_return;
@@ -208,6 +212,10 @@ void cloudy_header_unpack(const char* src, cloudy_header* dst)
 	dst->cas      = cloudy_be64h(*(uint64_t*)&src[16]);
 }
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* cloudy/types.h */
 

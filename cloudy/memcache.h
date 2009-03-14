@@ -4,6 +4,11 @@
 #include "cloudy/core.h"
 #include "cloudy/multi.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 cloudy_data* cloudy_get(cloudy* ctx,
 		const char* key, size_t keylen);
 
@@ -27,6 +32,10 @@ cloudy_return* cloudy_set_async(cloudy_multi* multi,
 //cloudy_return* cloudy_del_async(cloudy_multi* multi,
 //		const char* key, size_t keylen);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* cloudy/memcache.h */
 

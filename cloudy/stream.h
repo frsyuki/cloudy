@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct cloudy_stream_reference;
 typedef struct cloudy_stream_reference cloudy_stream_reference;
 
@@ -123,6 +127,10 @@ cloudy_stream_reference* cloudy_stream_reference_copy(cloudy_stream_reference* r
 	CLOUDY_STREAM_INCR_COUNT(reference);
 	return reference;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* cloudy/stream.h */
 

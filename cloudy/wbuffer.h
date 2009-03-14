@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef CLOUDY_WBUFFER_INIT_SIZE
 #define CLOUDY_WBUFFER_INIT_SIZE 2048
 #endif
@@ -63,6 +67,10 @@ static inline char* cloudy_wbuffer_release(cloudy_wbuffer* wbuf)
 	return tmp;
 }
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* cloudy/wbuffer.h */
 
