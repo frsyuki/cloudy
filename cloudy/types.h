@@ -94,6 +94,7 @@ static inline char* cloudy_data_extra(cloudy_data* d);
 static inline char* cloudy_data_key(cloudy_data* d);
 static inline char* cloudy_data_val(cloudy_data* d);
 static inline cloudy_return cloudy_data_error(cloudy_data* d);
+static inline cloudy_return* cloudy_data_error_ref(cloudy_data* d);
 
 
 
@@ -133,6 +134,11 @@ cloudy_return cloudy_data_error(cloudy_data* d)
 	return d->header.stat;
 }
 
+cloudy_return* cloudy_data_error_ref(cloudy_data* d)
+{
+	if(!d) { return NULL; }
+	return &d->header.stat;
+}
 
 
 #if !defined(__LITTLE_ENDIAN__) && !defined(__BIG_ENDIAN__)

@@ -109,7 +109,7 @@ cloudy_stream_reference* cloudy_stream_allocate(cloudy_stream* stream, size_t si
 	}
 	stream->used += size;
 	stream->free -= size;
-	CLOUDY_STREAM_INIT_COUNT(stream->buffer);
+	CLOUDY_STREAM_INCR_COUNT(stream->buffer);
 	return (cloudy_stream_reference*)stream->buffer;
 }
 
