@@ -37,6 +37,8 @@ cloudy_entry* cloudy_cbtable_callback(
 void cloudy_cbtable_callback_all(
 		cloudy_cbtable* cbtable, cloudy_return ret);
 
+bool cloudy_cbtable_empty(cloudy_cbtable* cbtable);
+
 
 #ifdef __cplusplus
 }

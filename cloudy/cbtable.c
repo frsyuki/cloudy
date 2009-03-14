@@ -153,3 +153,18 @@ void cloudy_cbtable_callback_all(
 }
 
 
+bool cloudy_cbtable_empty(cloudy_cbtable* cbtable)
+{
+	size_t n = 0;
+	do {
+		cloudy_entry* p = cbtable->map[n];
+		cloudy_entry* const pend = p + CLOUDY_CBTABLE_BASE_SIZE;
+		for(; p != pend; ++p) {
+			if(p->seqid == 0) {
+				return false;
+			}
+		}
+	} while(++n < cbtable->nmap);
+	return true;
+}
+

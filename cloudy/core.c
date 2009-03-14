@@ -2,6 +2,7 @@
 #include "cloudy/wbuffer.h"
 #include "cloudy/stream.h"
 #include "cloudy/cbtable.h"
+#include <fcntl.h>
 
 #ifndef CLOUDY_RECV_INIT_SIZE
 #define CLOUDY_RECV_INIT_SIZE 1024*8
@@ -50,6 +51,12 @@ static bool connect_server(cloudy* ctx)
 	}
 
 	ctx->fd = fd;
+
+	if(fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+		close(fd);
+		return false;
+	}
+
 	return true;
 }
 
@@ -162,6 +169,7 @@ append_wbuf_error:
 	return (cloudy_data*)e;
 }
 
+
 bool cloudy_send_request_flush(cloudy* ctx)
 {
 	cloudy_wbuffer* const wbuf = &ctx->wbuf;
@@ -175,6 +183,11 @@ bool cloudy_send_request_flush(cloudy* ctx)
 			cloudy_cbtable_callback_all(&ctx->cbtable, CLOUDY_RES_CLOSED);
 			return false;
 		}
+	}
+
+	if(fcntl(ctx->fd, F_SETFL, 0) < 0) {
+		error_close(ctx, CLOUDY_RES_IO_ERROR);
+		return false;
 	}
 
 	char* p = wbuf->data;
@@ -194,6 +207,41 @@ bool cloudy_send_request_flush(cloudy* ctx)
 	} while(p < pend);
 
 	wbuf->size = 0;
+
+	if(fcntl(ctx->fd, F_SETFL, O_NONBLOCK) < 0) {
+		error_close(ctx, CLOUDY_RES_IO_ERROR);
+		return false;
+	}
+
+	return true;
+}
+
+static bool cloudy_send_request_try_flush(cloudy* ctx)
+{
+	cloudy_wbuffer* const wbuf = &ctx->wbuf;
+
+	if(ctx->wbuf.size == 0) {
+		return true;
+	}
+
+	if(ctx->fd < 0) {
+		if(!connect_server(ctx)) {
+			cloudy_cbtable_callback_all(&ctx->cbtable, CLOUDY_RES_CLOSED);
+			return false;
+		}
+	}
+
+	ssize_t rl = write(ctx->fd, wbuf->data, wbuf->size);
+	if(rl <= 0) {
+		if(errno == EAGAIN || errno == EINTR) {
+			return true;
+		}
+		error_close(ctx, CLOUDY_RES_CLOSED);
+		return false;
+	}
+
+	wbuf->data += rl;
+	wbuf->size -= rl;
 
 	return true;
 }
@@ -223,21 +271,39 @@ retry_wait:
 		return false;
 	}
 
+retry_wait_retry:
 	{
 		struct timeval timeout = ctx->timeout;
-		fd_set fdset;
+		fd_set rfdset;
+		fd_set wfdset;
 
-		FD_ZERO(&fdset);
-		FD_SET(fd, &fdset);
+		FD_ZERO(&rfdset);
+		FD_ZERO(&wfdset);
+		FD_SET(fd, &rfdset);
 
-		int ret = select(fd+1, &fdset, NULL, NULL, &timeout);
+		int ret;
+		if(ctx->wbuf.size > 0) {
+			FD_SET(fd, &wfdset);
+			ret = select(fd+1, &rfdset, &wfdset, NULL, &timeout);
+		} else {
+			ret = select(fd+1, &rfdset, NULL, NULL, &timeout);
+		}
+
 		if(ret < 0) {
 			error_close(ctx, CLOUDY_RES_IO_ERROR);
 			return false;
-
 		} else if(ret == 0) {
 			cloudy_cbtable_callback_all(cbtable, CLOUDY_RES_TIMEOUT);
 			return false;
+		}
+
+		if(FD_ISSET(fd, &wfdset)) {
+			if(!cloudy_send_request_try_flush(ctx)) {
+				return false;
+			}
+			if(!FD_ISSET(fd, &rfdset)) {
+				goto retry_wait_retry;
+			}
 		}
 	}
 
@@ -283,12 +349,8 @@ skip_wait:
 		}
 
 		if(ctx->received - sizeof(cloudy_header) < header->bodylen) {
-			if(ctx->hparsed) {
-				return true;
-			} else {
-				ctx->hparsed = header;
-				goto retry_wait;
-			}
+			ctx->hparsed = header;
+			return true;
 		}
 	
 		ctx->hparsed = header;
@@ -315,9 +377,6 @@ skip_wait:
 
 bool cloudy_sync_response(cloudy* ctx, cloudy_data* data)
 {
-	if(!cloudy_send_request_flush(ctx)) {
-		return false;
-	}
 	cloudy_entry* const e = (cloudy_entry*)data;
 	while(e->data.header.magic != CLOUDY_RESPONSE) {
 		if(!cloudy_receive_message(ctx)) {
