@@ -1,0 +1,16 @@
+cloudy
+------
+fast memcached binary protocol client library
++ memcached benchmark tool
+
+
+*Requirements
+
+    - gcc >= 4.1
+
+
+*Installation
+
+    $ ./build.sh
+
+
