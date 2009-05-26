@@ -1,8 +1,29 @@
+ /*
+  * cloudy core
+  *
+  * Copyright (C) 2008-2009 FURUHASHI Sadayuki
+  *
+  *    Licensed under the Apache License, Version 2.0 (the "License");
+  *    you may not use this file except in compliance with the License.
+  *    You may obtain a copy of the License at
+  *
+  *        http://www.apache.org/licenses/LICENSE-2.0
+  *
+  *    Unless required by applicable law or agreed to in writing, software
+  *    distributed under the License is distributed on an "AS IS" BASIS,
+  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  *    See the License for the specific language governing permissions and
+  *    limitations under the License.
+  */
 #include "cloudy/core.h"
 #include "cloudy/wbuffer.h"
 #include "cloudy/stream.h"
 #include "cloudy/cbtable.h"
 #include <fcntl.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #ifndef CLOUDY_RECV_INIT_SIZE
 #define CLOUDY_RECV_INIT_SIZE 1024*8
@@ -51,6 +72,13 @@ static bool connect_server(cloudy* ctx)
 	}
 
 	ctx->fd = fd;
+
+	int flag = 1;
+	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));  // FIXME ignore error?
+
+	struct linger opt = {0, 0};
+	setsockopt(fd, SOL_SOCKET, SO_LINGER, (void *)&opt, sizeof(opt));  // FIXME ignore error?
+
 
 	if(fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
 		close(fd);
@@ -254,6 +282,7 @@ static inline bool cloudy_receive_message(cloudy* ctx)
 	const int fd = ctx->fd;
 
 	if(fd < 0) {
+		printf("xfd\n");
 		cloudy_cbtable_callback_all(cbtable, CLOUDY_RES_CLOSED);
 		return false;
 	}
@@ -261,6 +290,7 @@ static inline bool cloudy_receive_message(cloudy* ctx)
 	ssize_t rl;
 	if(!cloudy_stream_reserve_buffer(stream,
 				CLOUDY_RECV_RESERVE_SIZE, CLOUDY_RECV_INIT_SIZE)) {
+		printf("xreserve\n");
 		return false;
 	}
 	goto skip_wait;
@@ -268,6 +298,7 @@ static inline bool cloudy_receive_message(cloudy* ctx)
 retry_wait:
 	if(!cloudy_stream_reserve_buffer(stream,
 				CLOUDY_RECV_RESERVE_SIZE, CLOUDY_RECV_INIT_SIZE)) {
+		printf("xrecvinit\n");
 		return false;
 	}
 
@@ -280,7 +311,7 @@ retry_wait_retry:
 		FD_ZERO(&rfdset);
 		FD_ZERO(&wfdset);
 		FD_SET(fd, &rfdset);
-
+//printf("select...\n");
 		int ret;
 		if(ctx->wbuf.size > 0) {
 			FD_SET(fd, &wfdset);
@@ -288,17 +319,22 @@ retry_wait_retry:
 		} else {
 			ret = select(fd+1, &rfdset, NULL, NULL, &timeout);
 		}
+//printf("%d %d %d\n", ret, FD_ISSET(fd, &rfdset), ctx->wbuf.size );
 
 		if(ret < 0) {
+			printf("re<0 %d %d\n", errno, EINTR);
+			perror("re<0");
 			error_close(ctx, CLOUDY_RES_IO_ERROR);
 			return false;
 		} else if(ret == 0) {
+			printf("re==0\n");
 			cloudy_cbtable_callback_all(cbtable, CLOUDY_RES_TIMEOUT);
 			return false;
 		}
 
 		if(FD_ISSET(fd, &wfdset)) {
 			if(!cloudy_send_request_try_flush(ctx)) {
+				printf("send fail\n");
 				return false;
 			}
 			if(!FD_ISSET(fd, &rfdset)) {
@@ -310,6 +346,7 @@ retry_wait_retry:
 skip_wait:
 	if(!cloudy_stream_reserve_buffer(stream,
 				CLOUDY_RECV_RESERVE_SIZE+ctx->received, CLOUDY_RECV_INIT_SIZE)) {
+		printf("resv\n");
 		return false;
 	}
 
@@ -321,8 +358,10 @@ skip_wait:
 			goto retry_wait;
 		}
 		error_close(ctx, CLOUDY_RES_CLOSED);
+		printf("eag\n");
 		return false;
 	}
+//printf("%ld\n", rl);
 
 	ctx->received += rl;
 
@@ -345,6 +384,7 @@ skip_wait:
 		if(header->magic != CLOUDY_RESPONSE || header->seqid == 0) {
 			ctx->hparsed = NULL;
 			error_close(ctx, CLOUDY_RES_SERVER_ERROR);
+		printf("unkn\n");
 			return false;
 		}
 
