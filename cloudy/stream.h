@@ -112,11 +112,12 @@ size_t cloudy_stream_buffer_capacity(const cloudy_stream* stream)
 bool cloudy_stream_reserve_buffer(cloudy_stream* stream,
 		size_t size, size_t init_size)
 {
-	if(CLOUDY_STREAM_GET_COUNT(stream->buffer) == 1) {
-		/* rewind buffer */
-		stream->free += stream->used - CLOUDY_STREAM_COUNTER_SIZE;
-		stream->used = CLOUDY_STREAM_COUNTER_SIZE;
-	}
+	//if(CLOUDY_STREAM_GET_COUNT(stream->buffer) == 1) {
+	//	/* rewind buffer */
+	//	stream->free += stream->used - CLOUDY_STREAM_COUNTER_SIZE;
+	//	stream->used = CLOUDY_STREAM_COUNTER_SIZE;
+	//	printf("rewind buffer\n");
+	//}
 	if(stream->free < size) {
 		return cloudy_stream_expand_buffer(stream, size, init_size);
 	}

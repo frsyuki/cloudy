@@ -16,6 +16,7 @@
   *    limitations under the License.
   */
 #include "cloudy/stream.h"
+#include <string.h>
 
 bool cloudy_stream_expand_buffer(cloudy_stream* stream,
 		size_t size, size_t init_size)
@@ -42,6 +43,7 @@ bool cloudy_stream_expand_buffer(cloudy_stream* stream,
 		CLOUDY_STREAM_INIT_COUNT(tmp);
 
 		CLOUDY_STREAM_DECR_COUNT(stream->buffer);
+memcpy(tmp+CLOUDY_STREAM_COUNTER_SIZE, stream->buffer+stream->used, stream->free);
 
 		stream->buffer = tmp;
 		stream->used = CLOUDY_STREAM_COUNTER_SIZE;

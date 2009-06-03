@@ -25,6 +25,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include <stdio.h>
+
 #ifndef CLOUDY_RECV_INIT_SIZE
 #define CLOUDY_RECV_INIT_SIZE 1024*8
 #endif
@@ -350,6 +352,7 @@ skip_wait:
 		return false;
 	}
 
+//	printf("before read used=%lu received=%lu\n", stream->used, ctx->received);
 	rl = read(fd,
 			cloudy_stream_buffer(stream) + ctx->received,
 			cloudy_stream_buffer_capacity(stream) - ctx->received);
@@ -361,7 +364,8 @@ skip_wait:
 		printf("eag\n");
 		return false;
 	}
-//printf("%ld\n", rl);
+//printf("rl %ld\n", rl);
+//printf("current stream %p\n", stream);
 
 	ctx->received += rl;
 
@@ -379,12 +383,13 @@ skip_wait:
 
 /*header_parse:*/
 	while(1) {
+//	printf("buffer used %lu received %lu\n", stream->used, ctx->received);
 		header = (cloudy_header*)cloudy_stream_buffer(stream);
 		cloudy_header_unpack((char*)header, header);
 		if(header->magic != CLOUDY_RESPONSE || header->seqid == 0) {
 			ctx->hparsed = NULL;
 			error_close(ctx, CLOUDY_RES_SERVER_ERROR);
-		printf("unkn\n");
+		printf("unkn seqid=%u magic=%hu %d\n", header->seqid, header->magic, CLOUDY_RESPONSE);
 			return false;
 		}
 
