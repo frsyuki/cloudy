@@ -4,14 +4,22 @@
 
 int main(void)
 {
-	const char* host = "192.168.20.101";
+#ifdef _WIN32
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+	const char* host = "127.0.0.1";
 	unsigned short port = 11211;
 
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
+#ifndef _WIN32
 	inet_aton(host, &addr.sin_addr);
+#else
+	addr.sin_addr.s_addr = inet_addr(host); 
+#endif
 
 	struct timeval timeout = {1, 0};
 

@@ -21,7 +21,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stddef.h>
+#ifndef _WIN32
 #include <arpa/inet.h>
+#else
+#include <ws2tcpip.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

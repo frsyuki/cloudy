@@ -64,6 +64,7 @@ bool cloudy_stream_expand_buffer(cloudy_stream* stream,
 #define CLOUDY_STREAM_INIT_COUNT(b) \
 	do { *(volatile CLOUDY_STREAM_COUNTER_TYPE*)(b) = 1; } while(0)
 
+#ifndef _WIN32
 #define CLOUDY_STREAM_INCR_COUNT(b) \
 	do { __sync_add_and_fetch((CLOUDY_STREAM_COUNTER_TYPE*)(b), 1); } while(0)
 
@@ -73,6 +74,18 @@ bool cloudy_stream_expand_buffer(cloudy_stream* stream,
 			free(b); \
 		} \
 	} while(0)
+#else
+#define CLOUDY_STREAM_INCR_COUNT(b) \
+	do { \
+		__asm__ __volatile__("lock; incl %0":"+m"(b)); \
+	} while(0)
+#define CLOUDY_STREAM_DECR_COUNT(b) \
+	do { \
+		unsigned char c; \
+		__asm__ __volatile__("lock; decl %0; sete %1":"+m"(b), "=qm"(c) ::"memory"); \
+		if (!c) free(b); \
+	} while(0)
+#endif
 
 bool cloudy_stream_init(cloudy_stream* stream, size_t init_size)
 {

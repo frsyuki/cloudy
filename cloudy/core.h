@@ -20,9 +20,13 @@
 
 #include "cloudy/types.h"
 #include <stdbool.h>
+#ifndef _WIN32
 #include <sys/uio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#else
+#include <ws2tcpip.h>
+#endif
 #include <unistd.h>
 #include <errno.h>
 

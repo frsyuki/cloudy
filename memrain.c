@@ -135,7 +135,11 @@ static cloudy* initialize_user()
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(g_port);
+#ifndef _WIN32
 	inet_aton(g_host, &addr.sin_addr);  /* FIXME resolve host name */
+#else
+	addr.sin_addr.s_addr = inet_addr(g_host); 
+#endif
 
 	struct timeval timeout = {5, 0};
 
@@ -382,11 +386,17 @@ static void parse_argv(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 	pthread_t* threads;
 
 	parse_argv(argc, argv);	
 
+#ifdef SIGPIPE
 	signal(SIGPIPE, SIG_IGN);
+#endif
 
 	pthread_mutex_init(&g_count_lock, NULL);
 	pthread_cond_init(&g_count_cond, NULL);

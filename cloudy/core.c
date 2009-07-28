@@ -21,9 +21,25 @@
 #include "cloudy/cbtable.h"
 #include <fcntl.h>
 
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#else
+#include <ws2tcpip.h>
+struct iovec {
+  unsigned long iov_len;
+  char *iov_base;
+};
+ssize_t
+writev(SOCKET fd, const struct iovec *iov, int iovcnt)
+{
+  DWORD count = 0;
+  int res;
+  res = WSASend(fd, (LPWSABUF) iov, iovcnt, &count, 0, NULL, NULL);
+  return (res == 0 ? count : -1);
+}
+#endif
 
 #include <stdio.h>
 
@@ -81,11 +97,17 @@ static bool connect_server(cloudy* ctx)
 	struct linger opt = {0, 0};
 	setsockopt(fd, SOL_SOCKET, SO_LINGER, (void *)&opt, sizeof(opt));  // FIXME ignore error?
 
-
+#ifndef _WIN32
 	if(fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
 		close(fd);
 		return false;
 	}
+#else
+	{
+		unsigned long flags = 1;
+		ioctlsocket(fd, FIONBIO, &flags);
+	}
+#endif
 
 	return true;
 }
@@ -139,6 +161,10 @@ cloudy_data* cloudy_send_request_async(cloudy* ctx, cloudy_header* header,
 		}
 
 		ssize_t rl = writev(ctx->fd, iov, cnt);
+#ifdef _WIN32
+		errno = WSAGetLastError();
+		if (errno == WSAENOTCONN) errno = EAGAIN;
+#endif
 		if(rl <= 0) {
 			if(errno == EAGAIN || errno == EINTR) {
 				goto append_all;
@@ -215,16 +241,29 @@ bool cloudy_send_request_flush(cloudy* ctx)
 		}
 	}
 
+#ifndef _WIN32
 	if(fcntl(ctx->fd, F_SETFL, 0) < 0) {
 		error_close(ctx, CLOUDY_RES_IO_ERROR);
 		return false;
 	}
+#else
+	{
+		unsigned long flags = 0;
+		ioctlsocket(ctx->fd, FIONBIO, &flags);
+	}
+#endif
 
 	char* p = wbuf->data;
 	char* const pend = p + wbuf->size;
 
 	do {
+#ifndef _WIN32
 		ssize_t rl = write(ctx->fd, p, pend - p);
+#else
+		ssize_t rl = send(ctx->fd, p, pend - p, 0);
+		errno = WSAGetLastError();
+		if (errno == WSAENOTCONN) errno = EAGAIN;
+#endif
 		if(rl <= 0) {
 			if(errno == EAGAIN || errno == EINTR) {
 				continue;
@@ -238,10 +277,17 @@ bool cloudy_send_request_flush(cloudy* ctx)
 
 	wbuf->size = 0;
 
+#ifndef _WIN32
 	if(fcntl(ctx->fd, F_SETFL, O_NONBLOCK) < 0) {
 		error_close(ctx, CLOUDY_RES_IO_ERROR);
 		return false;
 	}
+#else
+	{
+		unsigned long flags = 1;
+		ioctlsocket(ctx->fd, FIONBIO, &flags);
+	}
+#endif
 
 	return true;
 }
@@ -261,7 +307,13 @@ static bool cloudy_send_request_try_flush(cloudy* ctx)
 		}
 	}
 
+#ifndef _WIN32
 	ssize_t rl = write(ctx->fd, wbuf->data, wbuf->size);
+#else
+	ssize_t rl = send(ctx->fd, wbuf->data, wbuf->size, 0);
+	errno = WSAGetLastError();
+	if (errno == WSAENOTCONN) errno = EAGAIN;
+#endif
 	if(rl <= 0) {
 		if(errno == EAGAIN || errno == EINTR) {
 			return true;
@@ -353,9 +405,18 @@ skip_wait:
 	}
 
 //	printf("before read used=%lu received=%lu\n", stream->used, ctx->received);
+#ifndef _WIN32
 	rl = read(fd,
 			cloudy_stream_buffer(stream) + ctx->received,
 			cloudy_stream_buffer_capacity(stream) - ctx->received);
+#else
+	rl = recv(fd,
+			cloudy_stream_buffer(stream) + ctx->received,
+			cloudy_stream_buffer_capacity(stream) - ctx->received,
+			0);
+	errno = WSAGetLastError();
+	if (errno == WSAEWOULDBLOCK) errno = EAGAIN;
+#endif
 	if(rl <= 0) {
 		if(errno == EAGAIN || errno == EINTR) {
 			goto retry_wait;
